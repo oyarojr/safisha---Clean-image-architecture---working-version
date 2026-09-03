@@ -1,0 +1,371 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - MyStore</title>
+    <link rel="stylesheet" href="{% static 'css/cart.css' %}">
+    <link rel="stylesheet" href="{% static 'css/checkout.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="cart-header">
+        <div class="header-content">
+            <a href="{% url 'cart_detail' %}" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back to Cart</span>
+            </a>
+            <h1 class="cart-logo">MyStore</h1>
+            <div class="header-spacer"></div>
+        </div>
+    </header>
+
+    <!-- Main Checkout Container -->
+    <main class="checkout-container">
+        <div class="checkout-wrapper">
+            <!-- Page Title -->
+            <div class="page-header">
+                <h1 class="page-title">
+                    <i class="fas fa-credit-card"></i>
+                    Checkout
+                </h1>
+                <p class="items-count">Complete your purchase</p>
+            </div>
+
+            <div class="checkout-layout">
+                <!-- Left: Delivery Information -->
+                <div class="delivery-section">
+                    <div class="section-card">
+                        <h2 class="section-title">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Delivery Information
+                        </h2>
+
+                        <!-- Saved Location Display -->
+                        <div class="saved-location-card">
+                            <div class="location-header">
+                                <div class="location-icon">
+                                    <i class="fas fa-home"></i>
+                                </div>
+                                <div class="location-details">
+                                    <h3>{{ default_plot.name }}</h3>
+                                    <p class="location-area">{{ default_plot.main_area.name }}</p>
+                                    {% if default_plot.landmark_description %}
+                                    <p class="location-landmark">
+                                        <i class="fas fa-map-signs"></i>
+                                        {{ default_plot.landmark_description }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if default_plot.get_primary_image %}
+                            <div class="location-image">
+                                <img src="{{ default_plot.get_primary_image.image.url }}" alt="{{ default_plot.name }}">
+                            </div>
+                            {% endif %}
+
+                            <div class="location-actions">
+                                <a href="{% url 'location_select' %}?next=checkout_page" class="btn-change-location">
+                                    <i class="fas fa-edit"></i>
+                                    Change Location for This Order
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="delivery-info-box">
+                            <div class="info-icon">
+                                <i class="fas fa-truck"></i>
+                            </div>
+                            <div class="info-content">
+                                <h4>Fast Delivery</h4>
+                                <p>Estimated delivery: 30-60 minutes after order confirmation</p>
+                                <p><strong>Delivery Fee: KSH {{ delivery_fee }}</strong></p>
+                            </div>
+                        </div>
+
+                        <form method="POST" id="checkoutForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="plot_id" value="{{ default_plot.id }}" id="plotIdInput">
+
+                            <button type="button" class="btn-checkout primary" onclick="openMpesaModal()">
+                                <i class="fas fa-lock"></i>
+                                <span>Proceed to Payment</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Right: Order Summary -->
+                <aside class="order-summary-checkout">
+                    <div class="section-card">
+                        <h2 class="section-title">
+                            <i class="fas fa-receipt"></i>
+                            Order Summary
+                        </h2>
+
+                        <div class="summary-items">
+                            {% for item in cart_items %}
+                            <div class="summary-item">
+                                <div class="summary-item-image">
+                                    <img src="{{ item.product.product_img.url }}" alt="{{ item.product.name }}"
+                                        onerror="this.src='/media/fallback.png'">
+                                </div>
+                                <div class="summary-item-details">
+                                    <h4>{{ item.product.name }}</h4>
+                                    <p class="quantity-price">Qty: {{ item.quantity }} × KSH {{ item.product.price|floatformat:2 }}</p>
+                                </div>
+                                <div class="summary-item-total">
+                                    <strong>KSH {{ item.subtotal|floatformat:2 }}</strong>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="summary-calculations">
+                            <div class="calc-row">
+                                <span>Subtotal</span>
+                                <span>KSH {{ total_price|floatformat:2 }}</span>
+                            </div>
+                            <div class="calc-row delivery-row" id="deliveryFeeDisplay">
+                                <span>Delivery Fee</span>
+                                <span id="deliveryAmount" class="delivery-fee has-fee">KSH {{ delivery_fee }}</span>
+                            </div>
+                            <div class="calc-divider"></div>
+                            <div class="calc-row total-row">
+                                <span>Total Amount</span>
+                                <span id="grandTotal" class="grand-total">KSH {{ grand_total|floatformat:2 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </main>
+
+    <!-- M-Pesa Payment Modal -->
+    <div id="mpesaModal" class="mpesa-modal" onclick="backdropClose(event)">
+        <div class="mpesa-modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="mpesa-logo">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h3>M-Pesa Payment</h3>
+                </div>
+                <button class="close-modal-btn" onclick="closeMpesaModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="payment-amount-display">
+                    <span class="amount-label">Amount to Pay</span>
+                    <span class="amount-value" id="modalGrandTotal">KSH {{ grand_total|floatformat:2 }}</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="phoneInput">
+                        <i class="fas fa-phone"></i>
+                        M-Pesa Phone Number
+                    </label>
+                    <input type="tel" id="phoneInput" class="form-control" placeholder="0712345678" maxlength="10"
+                        pattern="[0-9]{10}">
+                    <small class="form-hint">Enter your Safaricom number</small>
+                </div>
+
+                <button class="btn-pay" id="payBtn" onclick="initiatePayment()">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Send STK Push</span>
+                </button>
+
+                <button class="btn-retry" id="retryBtn" onclick="initiatePayment()">
+                    <i class="fas fa-redo"></i>
+                    <span>Retry Payment</span>
+                </button>
+
+                <div id="paymentStatus" class="payment-status"></div>
+
+                <div id="spinner" class="payment-spinner">
+                    <div class="spinner-circle"></div>
+                    <p>Check your phone for M-Pesa prompt...</p>
+                    <small>Enter your M-Pesa PIN to complete payment</small>
+                </div>
+
+                <div class="payment-security">
+                    <i class="fas fa-lock"></i>
+                    <span>Secure payment powered by M-Pesa</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="cart-footer">
+        <div class="footer-content">
+            <p>&copy; 2026 MyStore. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Contact Us</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Delivery fee and total are already set from backend
+        let pollInterval = null;
+        let timeoutTimer = null;
+
+        function openMpesaModal() {
+            // No need to check location - it's already saved
+            const modal = document.getElementById('mpesaModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            // Add animation
+            setTimeout(() => {
+                modal.querySelector('.mpesa-modal-content').classList.add('show');
+            }, 10);
+        }
+
+        function closeMpesaModal() {
+            clearAllTimers();
+            const modal = document.getElementById('mpesaModal');
+            modal.querySelector('.mpesa-modal-content').classList.remove('show');
+
+            setTimeout(() => {
+                modal.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }, 300);
+
+            // Reset form
+            document.getElementById('paymentStatus').innerText = '';
+            document.getElementById('retryBtn').style.display = 'none';
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('payBtn').style.display = 'flex';
+        }
+
+        function initiatePayment() {
+            if (pollInterval) return;
+
+            const payBtn = document.getElementById('payBtn');
+            const retryBtn = document.getElementById('retryBtn');
+
+            payBtn.disabled = true;
+            payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>';
+            retryBtn.style.display = 'none';
+
+            const phone = document.getElementById('phoneInput').value;
+            const plotId = document.getElementById('plotIdInput').value;
+
+            if (!phone) {
+                alert("Please enter your M-Pesa phone number");
+                payBtn.disabled = false;
+                payBtn.innerHTML = '<i class="fas fa-shield-alt"></i><span>Send STK Push</span>';
+                return;
+            }
+
+            document.getElementById('paymentStatus').innerText = "Sending STK Push...";
+            document.getElementById('paymentStatus').className = 'payment-status info';
+            document.getElementById('spinner').style.display = 'block';
+
+            fetch("{% url 'process_payment' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: `phone=${phone}&plot_id=${plotId}`
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const orderId = data.order_id;
+                    document.getElementById('paymentStatus').innerText = "Waiting for payment confirmation...";
+                    startPolling(orderId);
+                })
+                .catch(() => {
+                    document.getElementById('paymentStatus').innerText = "Payment initiation failed";
+                    document.getElementById('paymentStatus').className = 'payment-status error';
+                    document.getElementById('spinner').style.display = 'none';
+                    showRetry();
+                });
+        }
+
+        function startPolling(orderId) {
+            pollInterval = setInterval(() => {
+                fetch(`/payment-status/${orderId}/`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === "SUCCESS") {
+                            clearAllTimers();
+                            document.getElementById('spinner').style.display = 'none';
+                            document.getElementById('paymentStatus').innerText = "Payment successful! Redirecting...";
+                            document.getElementById('paymentStatus').className = 'payment-status success';
+                            setTimeout(() => {
+                                window.location.href = "/order-success/";
+                            }, 1500);
+                        }
+
+                        if (data.status === "FAILED") {
+                            clearAllTimers();
+                            document.getElementById('spinner').style.display = 'none';
+                            document.getElementById('paymentStatus').innerText =
+                                "Payment failed. Insufficient funds or cancelled.";
+                            document.getElementById('paymentStatus').className = 'payment-status error';
+                            showRetry();
+                            hidepayBtn();
+                        }
+                    });
+            }, 3000);
+
+            timeoutTimer = setTimeout(() => {
+                clearAllTimers();
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('paymentStatus').innerText =
+                    "Payment timed out. Please try again.";
+                document.getElementById('paymentStatus').className = 'payment-status error';
+                showRetry();
+            }, 60000);
+        }
+
+        function clearAllTimers() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            if (timeoutTimer) {
+                clearTimeout(timeoutTimer);
+                timeoutTimer = null;
+            }
+            const payBtn = document.getElementById('payBtn');
+            payBtn.disabled = false;
+            payBtn.innerHTML = '<i class="fas fa-shield-alt"></i><span>Send STK Push</span>';
+        }
+
+        function showRetry() {
+            document.getElementById('retryBtn').style.display = 'flex';
+        }
+
+        function hidepayBtn() {
+            document.getElementById('payBtn').style.display = 'none';
+        }
+
+        function backdropClose(e) {
+            if (pollInterval) return;
+            if (e.target.id === 'mpesaModal') {
+                closeMpesaModal();
+            }
+        }
+    </script>
+</body>
+
+</html>

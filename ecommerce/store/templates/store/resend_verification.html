@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Resend Verification | MyStore</title>
+    <link rel="stylesheet" href="{% static 'css/auth-login.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body class="auth-body">
+
+    <div class="auth-card">
+        <div class="auth-header">
+            <i class="fas fa-envelope"></i>
+            <h2>Resend Verification Email</h2>
+            <p>Get a new verification link</p>
+        </div>
+
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div style="text-align: center; padding: 20px;">
+            <p style="margin-bottom: 15px;">
+                Your email: <strong>{{ user.email }}</strong>
+            </p>
+            <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">
+                Click the button below to receive a new verification email.
+            </p>
+
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" class="auth-btn">Resend Verification Email</button>
+            </form>
+        </div>
+
+        <p class="auth-footer">
+            <a href="{% url 'profile' %}">Back to profile</a>
+        </p>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,269 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order History - MyStore</title>
+    <link rel="stylesheet" href="{% static 'css/cart.css' %}">
+    <link rel="stylesheet" href="{% static 'css/order-history.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="cart-header">
+        <div class="header-content">
+            <a href="{% url 'profile' %}" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back to Profile</span>
+            </a>
+            <h1 class="cart-logo">MyStore</h1>
+            <a href="/" class="header-home-link">
+                <i class="fas fa-home"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="order-history-container">
+        <div class="order-history-wrapper">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="header-left">
+                    <h1 class="page-title">
+                        <i class="fas fa-history"></i>
+                        Order History
+                    </h1>
+                    <p class="page-subtitle">Track all your purchases</p>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-shopping-bag"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-value">{{ total_orders }}</span>
+                            <span class="stat-label">Total Orders</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-value">KSH {{ total_spent|floatformat:0 }}</span>
+                            <span class="stat-label">Total Spent</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+                <button class="tab-btn active" data-filter="all">
+                    <i class="fas fa-list"></i>
+                    All Orders ({{ orders.count }})
+                </button>
+                <button class="tab-btn" data-filter="paid">
+                    <i class="fas fa-check-circle"></i>
+                    Completed ({{ paid_orders.count }})
+                </button>
+                <button class="tab-btn" data-filter="pending">
+                    <i class="fas fa-clock"></i>
+                    Pending ({{ pending_orders.count }})
+                </button>
+            </div>
+
+            {% if orders %}
+            <!-- Orders List -->
+            <div class="orders-list">
+                {% for order in orders %}
+                <article class="order-card" data-status="{{ order.is_paid|yesno:'paid,pending' }}">
+                    <!-- Order Header -->
+                    <div class="order-header">
+                        <div class="order-header-left">
+                            <h3 class="order-number">
+                                <i class="fas fa-receipt"></i>
+                                Order #{{ order.id }}
+                            </h3>
+                            <span class="order-date">
+                                <i class="fas fa-calendar"></i>
+                                {{ order.created_at|date:"F d, Y" }} at {{ order.created_at|date:"g:i A" }}
+                            </span>
+                        </div>
+                        <div class="order-header-right">
+                            {% if order.is_paid %}
+                            <span class="status-badge paid">
+                                <i class="fas fa-check-circle"></i>
+                                Paid
+                            </span>
+                            {% else %}
+                            <span class="status-badge pending">
+                                <i class="fas fa-clock"></i>
+                                Pending
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Order Items -->
+                    <div class="order-items">
+                        {% for item in order.items.all %}
+                        <div class="order-item">
+                            <div class="item-image">
+                                <img src="{{ item.product.product_img.url }}" alt="{{ item.product.name }}"
+                                    onerror="this.src='/media/fallback.png'">
+                            </div>
+                            <div class="item-details">
+                                <h4 class="item-name">{{ item.product.name }}</h4>
+                                <p class="item-quantity">Quantity: {{ item.quantity }}</p>
+                                <p class="item-price">KSH {{ item.price|floatformat:2 }} each</p>
+                            </div>
+                            <div class="item-subtotal">
+                                <span class="subtotal-amount">KSH {{ item.price|floatformat:2 }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="order-summary">
+                        <div class="summary-row">
+                            <span class="summary-label">
+                                <i class="fas fa-truck"></i>
+                                Delivery Location
+                            </span>
+                            <span class="summary-value">{{ order.get_delivery_location }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Subtotal</span>
+                            <span
+                                class="summary-value">KSH{{order.total_amount|floatformat:2|add:"-"|add:order.delivery_fee|floatformat:2}}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Delivery Fee</span>
+                            <span class="summary-value">KSH {{ order.delivery_fee|floatformat:2 }}</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span class="summary-label">Total Amount</span>
+                            <span class="summary-value">KSH {{ order.total_amount|floatformat:2 }}</span>
+                        </div>
+
+                        {% if order.is_paid %}
+                        {% with order.mpesa_transaction as txn %}
+                        {% if txn %}
+                        <div class="summary-row receipt">
+                            <span class="summary-label">
+                                <i class="fas fa-file-invoice"></i>
+                                M-Pesa Receipt
+                            </span>
+                            <span class="summary-value receipt-number">{{ txn.mpesa_receipt_number }}</span>
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Order Actions -->
+                    <div class="order-actions">
+                        <a href="{% url 'order_detail' order.id %}" class="btn-action primary">
+                            <i class="fas fa-eye"></i>
+                            View Details
+                        </a>
+                        {% if order.is_paid %}
+                        <button class="btn-action secondary" onclick="downloadReceipt('{{ order.id }}')">
+                            <i class="fas fa-download"></i>
+                            Download Receipt
+                        </button>
+                        {% endif %}
+                        <a href="https://wa.me/254115745813?text=Hi,%20I%20have%20a%20question%20about%20Order%20%23{{ order.id }}"
+                            target="_blank" class="btn-action whatsapp">
+                            <i class="fab fa-whatsapp"></i>
+                            Contact Support
+                        </a>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+                <h2>No Orders Yet</h2>
+                <p>You haven't placed any orders yet. Start shopping to see your order history here!</p>
+                <a href="/" class="btn-shop-now">
+                    <i class="fas fa-store"></i>
+                    Start Shopping
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="cart-footer">
+        <div class="footer-content">
+            <p>&copy; 2026 MyStore. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Contact Us</a>
+            </div>
+        </div>
+    </footer>
+
+<!-- *** Call to Action *** -->
+
+    <script>
+        // Tab filtering
+        const tabs = document.querySelectorAll('.tab-btn');
+        const orders = document.querySelectorAll('.order-card');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('active'));
+
+                // Add active class to clicked tab
+                tab.classList.add('active');
+
+                // Get filter value
+                const filter = tab.dataset.filter;
+
+                // Filter orders
+                orders.forEach(order => {
+                    if (filter === 'all') {
+                        order.style.display = 'block';
+                    } else {
+                        if (order.dataset.status === filter) {
+                            order.style.display = 'block';
+                        } else {
+                            order.style.display = 'none';
+                        }
+                    }
+                });
+            });
+        });
+
+        // Download receipt function
+        function downloadReceipt(orderId) {
+            // This would typically call an API endpoint that generates a PDF
+            alert('Receipt download feature coming soon for Order #' + orderId);
+            // window.location.href = `/download-receipt/${orderId}/`;
+        }
+
+        // Smooth scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    </script>
+</body>
+
+</html>

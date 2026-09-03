@@ -1,0 +1,276 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Your Location - MyStore</title>
+    <link rel="stylesheet" href="{% static 'css/cart.css' %}">
+    <link rel="stylesheet" href="{% static 'css/location-select.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="cart-header">
+        <div class="header-content">
+            <a href="{% url 'home' %}" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                <span>Skip for now</span>
+            </a>
+            <h1 class="cart-logo">MyStore</h1>
+            <div class="header-spacer"></div>
+        </div>
+    </header>
+
+    <main class="location-container">
+        <div class="location-wrapper">
+            <!-- Progress Indicator -->
+            <div class="progress-indicator">
+                <div class="progress-step" :class="{'active': currentStep >= 1, 'completed': currentStep > 1}">
+                    <div class="step-number">1</div>
+                    <span>Main Area</span>
+                </div>
+                <div class="progress-line" :class="{'active': currentStep > 1}"></div>
+                <div class="progress-step" :class="{'active': currentStep >= 2, 'completed': currentStep > 2}">
+                    <div class="step-number">2</div>
+                    <span>Your Plot</span>
+                </div>
+                <div class="progress-line" :class="{'active': currentStep > 2}"></div>
+                <div class="progress-step" :class="{'active': currentStep >= 3}">
+                    <div class="step-number">3</div>
+                    <span>Confirm</span>
+                </div>
+            </div>
+
+            <!-- Welcome Message -->
+            <div class="welcome-section" v-if="currentStep === 1">
+                <div class="welcome-icon">
+                    <i class="fas fa-map-marked-alt"></i>
+                </div>
+                <h1 class="welcome-title">Welcome! Let's Find Your Location</h1>
+                <p class="welcome-text">
+                    To ensure fast and accurate delivery, please help us identify your exact plot.
+                    This will be saved to your profile for future orders.
+                </p>
+            </div>
+
+            <!-- Step 1: Main Area Selection -->
+            <div class="step-content" v-show="currentStep === 1">
+                <h2 class="step-title">
+                    <i class="fas fa-map-pin"></i>
+                    Select Your Main Area
+                </h2>
+
+                <div class="main-areas-grid">
+                    {% for area in main_areas %}
+                    <div class="area-card"
+                        @click="selectMainArea({{ area.id }}, '{{ area.name }}', {{ area.delivery_fee }})">
+                        <div class="area-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="area-info">
+                            <h3>{{ area.name }}</h3>
+                            <p class="area-fee">Delivery: KSH {{ area.delivery_fee }}</p>
+                            <p class="area-plots">{{ area.plots.count }} plots available</p>
+                        </div>
+                        <i class="fas fa-chevron-right area-arrow"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Step 2: Plot Selection -->
+            <div class="step-content" v-show="currentStep === 2">
+                <div class="step-header">
+                    <button class="btn-back" @click="currentStep = 1">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Areas
+                    </button>
+                    <h2 class="step-title">
+                        <i class="fas fa-home"></i>
+                        Select Your Plot in ${selectedAreaName}
+                    </h2>
+                </div>
+
+                <!-- Search Box -->
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" v-model="searchQuery" placeholder="Search for your plot or nearby landmark..."
+                        class="search-input">
+                </div>
+
+                <div class="plots-grid">
+                    <div v-for="plot in filteredPlots" :key="plot.id" class="plot-card" @click="selectPlot(plot)">
+                        <div class="plot-image">
+                            <img :src="plot.primary_image" :alt="plot.name">
+                            <div class="image-count" v-if="plot.image_count > 1">
+                                <i class="fas fa-images"></i>
+                                ${plot.image_count}
+                            </div>
+                        </div>
+                        <div class="plot-info">
+                            <h3>${plot.name}</h3>
+                            <p class="plot-description" v-if="plot.landmark_description">
+                                <i class="fas fa-map-signs"></i>
+                                ${plot.landmark_description}
+                            </p>
+                        </div>
+                        <div class="select-indicator">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Not Sure Button -->
+                <div class="not-sure-section">
+                    <p>Can't find your plot?</p>
+                    <a href="https://wa.me/254YOUR_NUMBER" target="_blank" class="btn-contact">
+                        <i class="fab fa-whatsapp"></i>
+                        Contact Us on WhatsApp
+                    </a>
+                </div>
+            </div>
+
+            <!-- Step 3: Plot Detail & Confirmation -->
+            <div class="step-content" v-show="currentStep === 3">
+                <div class="step-header">
+                    <button class="btn-back" @click="currentStep = 2">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Plots
+                    </button>
+                    <h2 class="step-title">
+                        <i class="fas fa-check-circle"></i>
+                        Confirm Your Location
+                    </h2>
+                </div>
+
+                <div class="confirmation-card">
+                    <div class="confirmation-header">
+                        <h3>${selectedPlot.name}</h3>
+                        <span class="area-badge">${selectedAreaName}</span>
+                    </div>
+
+                    <!-- Image Gallery -->
+                    <div class="image-gallery">
+                        <div class="main-image">
+                            <img :src="currentImage" alt="Plot view">
+                        </div>
+                        <div class="thumbnail-strip" v-if="selectedPlot.images && selectedPlot.images.length > 1">
+                            <div v-for="(img, index) in selectedPlot.images" :key="index" class="thumbnail"
+                                :class="{'active': currentImageIndex === index}"
+                                @click="currentImageIndex = index; currentImage = img">
+                                <img :src="img" alt="Plot view">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Location Details -->
+                    <div class="location-details">
+                        <div class="detail-item" v-if="selectedPlot.landmark_description">
+                            <i class="fas fa-map-signs"></i>
+                            <div>
+                                <strong>Nearby Landmarks</strong>
+                                <p>${selectedPlot.landmark_description}</p>
+                            </div>
+                        </div>
+                        <div class="detail-item" v-if="selectedPlot.description">
+                            <i class="fas fa-info-circle"></i>
+                            <div>
+                                <strong>Additional Info</strong>
+                                <p>${selectedPlot.description}</p>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-truck"></i>
+                            <div>
+                                <strong>Delivery Fee</strong>
+                                <p>KSH ${selectedAreaFee}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confirmation Question -->
+                    <div class="confirmation-question">
+                        <i class="fas fa-question-circle"></i>
+                        <p>Do you recognize this building? Is this where you stay?</p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <form method="POST" action="{% url 'save_location' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="plot_id" :value="selectedPlot.id">
+                        <button type="submit" class="btn-confirm">
+                            <i class="fas fa-check"></i>
+                            Yes, This is My Location
+                        </button>
+                    </form>
+
+                    <button class="btn-secondary" @click="currentStep = 2">
+                        <i class="fas fa-times"></i>
+                        No, Choose Different Plot
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            delimiters: ['${', '}'],
+            data() {
+                return {
+                    currentStep: 1,
+                    selectedAreaId: null,
+                    selectedAreaName: '',
+                    selectedAreaFee: 0,
+                    selectedPlot: {},
+                    searchQuery: '',
+                    plots: [],
+                    currentImageIndex: 0,
+                    currentImage: ''
+                }
+            },
+            computed: {
+                filteredPlots() {
+                    if (!this.searchQuery) return this.plots;
+                    const query = this.searchQuery.toLowerCase();
+                    return this.plots.filter(plot =>
+                        plot.name.toLowerCase().includes(query) ||
+                        (plot.landmark_description && plot.landmark_description.toLowerCase().includes(query))
+                    );
+                }
+            },
+            methods: {
+                async selectMainArea(areaId, areaName, areaFee) {
+                    this.selectedAreaId = areaId;
+                    this.selectedAreaName = areaName;
+                    this.selectedAreaFee = areaFee;
+
+                    // Fetch plots for this area
+                    const response = await fetch(`/api/plots/${areaId}/`);
+                    this.plots = await response.json();
+
+                    this.currentStep = 2;
+                },
+                selectPlot(plot) {
+                    this.selectedPlot = plot;
+                    this.currentImageIndex = 0;
+                    this.currentImage = plot.images[0];
+                    this.currentStep = 3;
+                }
+            }
+        }).mount('.location-container');
+    </script>
+</body>
+
+</html>

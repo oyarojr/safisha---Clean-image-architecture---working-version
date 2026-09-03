@@ -1,0 +1,286 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Store</title>
+    <meta name="description" content="Shop amazing products with fast delivery">
+    <meta name="author" content="Daniel Oyaro">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="{% static 'js/cart.js' %}" defer></script>
+    <script>
+        // Account menu toggle functionality
+        document.addEventListener('DOMContentLoaded', function () {
+            const accountIcon = document.getElementById('accountIcon');
+            const accountDropdown = document.getElementById('accountDropdown');
+
+            if (accountIcon && accountDropdown) {
+                accountIcon.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const isVisible = accountDropdown.style.display === 'block';
+                    accountDropdown.style.display = isVisible ? 'none' : 'block';
+                });
+
+                document.addEventListener('click', function (e) {
+                    if (!accountIcon.contains(e.target) && !accountDropdown.contains(e.target)) {
+                        accountDropdown.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <header>
+        <div class="positionhum">
+            <a href="#" id="menu"></a>
+            <h1 class="logo">MyStore</h1>
+        </div>
+
+        <div class="search-bar">
+            <div class="left-section">
+                <a href="/" class="home-icon" title="Home">
+                    <i class="fas fa-home"></i>
+                </a>
+                <input type="text" id="searchInput" placeholder="Search products..." value="{{ query|default:'' }}"
+                    aria-label="Search products">
+            </div>
+
+            <div class="right-section">
+                <span class="cartblock">
+                    <a href="{% url 'cart_detail' %}">
+                        Cart (<span id="cart-count">{{ cart_count|default:0 }}</span>)
+                    </a>
+                </span>
+
+                {% if user.is_authenticated %}
+                <span class="username-display">Hi {{ user.first_name|default:user.username }}</span>
+                {% endif %}
+
+                <div class="account-menu">
+                    {% if user.is_authenticated and user.profile.has_profile_picture %}
+                    <img src="{{ user.profile.get_profile_picture_url }}" alt="Profile" class="profile-pic-icon"
+                        id="accountIcon">
+                    {% else %}
+                    <i class="fas fa-user-circle" id="accountIcon"></i>
+                    {% endif %}
+
+                    <div class="account-dropdown" id="accountDropdown">
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'profile' %}">
+                            <i class="fas fa-user"></i>
+                            My Profile
+                        </a>
+                        <a href="{% url 'order_history' %}">
+                            <i class="fas fa-history"></i>
+                            Order History
+                        </a>
+                        <a href="{% url 'location_select' %}">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Delivery Location
+                        </a>
+                        <a href="{% url 'logout' %}">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                        {% else %}
+                        <a href="{% url 'login' %}">
+                            <i class="fas fa-sign-in-alt"></i>
+                            Login
+                        </a>
+                        <a href="{% url 'signup' %}">
+                            <i class="fas fa-user-plus"></i>
+                            Signup
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <nav>
+                <ul class="navigation">
+                    {% for category in categories %}
+                    <li>
+                        <a href="#{{ category.slug }}">{{ category.name }}</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        {% for category in categories %}
+        {% if category.filtered_products %}
+        <section id="{{ category.slug }}" class="category-section">
+            <h2>{{ category.name }}</h2>
+
+            <div class="products">
+                {% for product in category.filtered_products %}
+                <div class="product-card" data-product-id="{{ product.id }}">
+                    <div class="card-img" onclick="openProductModal('{{ product.id }}')">
+                        <img src="{{ product.product_img.url }}" alt="{{ product.name }}" loading="lazy">
+                        <!-- ADDED loading=lazy -->
+                        <div class="quick-view-overlay">
+                            <i class="fas fa-eye"></i>
+                            <span>Quick View</span>
+                        </div>
+                    </div>
+                    <h4 onclick="openProductModal('{{ product.id }}')">{{ product.name }}</h4>
+                    <p class="product-description">{{ product.description|truncatewords:10 }}</p>
+                    <strong>KSH {{ product.price|floatformat:2 }}</strong>
+                    {% if product.stock_status == 'in' %}
+                    <p class="stock in-stock"><i class="fas fa-check-circle"></i> In Stock</p>
+                    {% elif product.stock_status == 'low' %}
+                    <p class="stock low-stock"><i class="fas fa-exclamation-circle"></i> Few items remaining</p>
+                    {% else %}
+                    <p class="stock out-stock"><i class="fas fa-times-circle"></i> Out of stock</p>
+                    {% endif %}
+
+                    {% if product.stock_quantity > 0 %}
+                    <button class="btn add-to-cart" data-product-id="{{ product.id }}">
+                        <i class="fas fa-shopping-cart"></i> Add to Cart
+                    </button>
+                    {% else %}
+                    <button class="btn manger" disabled>Out of Stock</button>
+                    {% endif %}
+
+                    <script type="application/json" class="product-data">
+                        {
+                            "id": {{ product.id }},
+                            "name": "{{ product.name|escapejs }}",
+                            "description": "{{ product.description|escapejs }}",
+                            "price": "{{ product.price }}",
+                            "image": "{{ product.product_img.url }}",
+                            "stock_quantity": {{ product.stock_quantity }},
+                            "stock_status": "{{ product.stock_status }}",
+                            "category": "{{ category.name|escapejs }}"
+                        }
+                    </script>
+                </div>
+                {% empty %}
+                <p>No products in this category.</p>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+        {% endfor %}
+
+        {% if query and not has_results %}
+        <p style="text-align:center; margin-top:40px; color:#888; font-size:1.1rem;">
+            No products found matching "<strong>{{ query }}</strong>".
+        </p>
+        {% endif %}
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div id="productModal" class="product-modal">
+        <div class="modal-overlay" onclick="closeProductModal()"></div>
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeProductModal()">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <div class="modal-body">
+                <div class="modal-image-section">
+                    <div class="modal-image-container">
+                        <img id="modalProductImage" src="" alt="Product">
+                    </div>
+                </div>
+
+                <div class="modal-details-section">
+                    <div class="modal-breadcrumb">
+                        <a href="/">Home</a>
+                        <i class="fas fa-chevron-right"></i>
+                        <span id="modalProductCategory">Category</span>
+                    </div>
+
+                    <h1 id="modalProductName" class="modal-product-title">Product Name</h1>
+
+                    <div class="modal-price-stock">
+                        <div class="modal-price">
+                            <span class="price-label">Price:</span>
+                            <span id="modalProductPrice" class="price-value">KSH 0.00</span>
+                        </div>
+                        <div id="modalProductStock" class="modal-stock">
+                            <i class="fas fa-check-circle"></i>
+                            <span>In Stock</span>
+                        </div>
+                    </div>
+
+                    <div class="modal-description">
+                        <h3>Description</h3>
+                        <p id="modalProductDescription">Product description...</p>
+                    </div>
+
+                    <div class="modal-features">
+                        <h3>Product Features</h3>
+                        <ul>
+                            <li><i class="fas fa-check"></i> High Quality Product</li>
+                            <li><i class="fas fa-check"></i> Fast Delivery</li>
+                            <li><i class="fas fa-check"></i> Secure Payment</li>
+                            <li><i class="fas fa-check"></i> Customer Support</li>
+                        </ul>
+                    </div>
+
+                    <div class="modal-quantity-section">
+                        <label>Quantity:</label>
+                        <div class="modal-quantity-controls">
+                            <button class="qty-decrease" onclick="decreaseModalQuantity()">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" id="modalQuantity" value="1" min="1" max="99" readonly>
+                            <button class="qty-increase" onclick="increaseModalQuantity()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button id="modalAddToCart" class="modal-btn primary" onclick="addToCartFromModal()">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span>Add to Cart</span>
+                        </button>
+                        <button class="modal-btn secondary" onclick="closeProductModal()">
+                            <i class="fas fa-store"></i>
+                            <span>Continue Shopping</span>
+                        </button>
+                    </div>
+
+                    <div class="modal-trust-badges">
+                        <div class="trust-badge">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Secure</span>
+                        </div>
+                        <div class="trust-badge">
+                            <i class="fas fa-truck"></i>
+                            <span>Fast Delivery</span>
+                        </div>
+                        <div class="trust-badge">
+                            <i class="fas fa-undo"></i>
+                            <span>Returns</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+    <button id="backToTop" title="Back to top">↑</button>
+</body>
+
+</html>

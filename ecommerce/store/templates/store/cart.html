@@ -1,0 +1,185 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - MyStore</title>
+    <meta name="description" content="Review and manage your shopping cart items">
+    <link rel="stylesheet" href="{% static 'css/cart.css' %}">
+    <link rel="stylesheet" href="{% static 'css/cart-large.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Header Navigation -->
+    <header class="cart-header">
+        <div class="header-content">
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                <span>Continue Shopping</span>
+            </a>
+            <h1 class="cart-logo">MyStore</h1>
+            <div class="header-spacer"></div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="cart-container">
+        <div class="cart-wrapper">
+            <!-- Page Title -->
+            <div class="page-header">
+                <h1 class="page-title">
+                    <i class="fas fa-shopping-bag"></i>
+                    Shopping Cart
+                </h1>
+                {% if cart_items %}
+                <p class="items-count">{{ cart_items|length }} item{{ cart_items|length|pluralize }}</p>
+                {% endif %}
+            </div>
+
+            {% if cart_items %}
+            <div class="cart-layout">
+                <!-- Cart Items Section -->
+                <div class="cart-items-section">
+                    {% for item in cart_items %}
+                    <article class="cart-item">
+                        <div class="item-image">
+                            <img src="{{ item.product.product_img.url }}" alt="{{ item.product.name }}"
+                                onerror="this.src='https://res.cloudinary.com/ddzew9jd5/image/upload/fallback.png'"
+                                loading="lazy">
+                        </div>
+
+                        <div class="item-info">
+                            <div class="item-header">
+                                <h3 class="item-name">{{ item.product.name }}</h3>
+                                <button class="remove-btn"
+                                    onclick="window.location.href='{% url 'remove_from_cart' item.product.id %}'">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+
+                            <p class="item-description">{{ item.product.description|truncatewords:15 }}</p>
+                            <p class="item-price">KSH {{ item.product.price|floatformat:2 }}</p>
+
+                            <div class="item-actions">
+                                <div class="quantity-selector">
+                                    <button class="qty-btn"
+                                        onclick="window.location.href='{% url 'update_cart_quantity' item.product.id 'decrease' %}'">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                    <span class="qty-display">{{ item.quantity }}</span>
+                                    <button class="qty-btn"
+                                        onclick="window.location.href='{% url 'update_cart_quantity' item.product.id 'increase' %}'">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+
+                                <div class="item-subtotal">
+                                    <span class="subtotal-label">Subtotal</span>
+                                    <span class="subtotal-amount">KSH {{ item.subtotal|floatformat:2 }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+
+                <!-- Order Summary Sidebar -->
+                <aside class="order-summary">
+                    <div class="summary-card">
+                        <h2 class="summary-title">Order Summary</h2>
+
+                        <div class="summary-details">
+                            <div class="summary-row">
+                                <span>Subtotal ({{ cart_items|length }} item{{ cart_items|length|pluralize }})</span>
+                                <span>KSH {{ total_price|floatformat:2 }}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Shipping</span>
+                                <span class="free-shipping">Calculated at checkout</span>
+                            </div>
+                            <div class="summary-divider"></div>
+                            <div class="summary-row total-row">
+                                <span>Total</span>
+                                <span class="total-amount">KSH {{ total_price|floatformat:2 }}</span>
+                            </div>
+                        </div>
+
+                        {% if not user.is_authenticated %}
+                        <div class="auth-notice">
+                            <i class="fas fa-info-circle"></i>
+                            <p>Please <a href="{% url 'login' %}?next={% url 'checkout_page' %}">log in</a> to checkout
+                            </p>
+                        </div>
+                        {% endif %}
+
+                        <div class="checkout-actions">
+                            {% if user.is_authenticated %}
+                            <a href="{% url 'checkout_page' %}" class="checkout-btn primary">
+                                <span>Proceed to Checkout</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                            {% else %}
+                            <a href="{% url 'login' %}?next={% url 'checkout_page' %}" class="checkout-btn primary">
+                                <span>Log In to Checkout</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                            {% endif %}
+                            <a href="/" class="checkout-btn secondary">
+                                <i class="fas fa-store"></i>
+                                <span>Continue Shopping</span>
+                            </a>
+                        </div>
+
+                        <div class="trust-badges">
+                            <div class="badge">
+                                <i class="fas fa-lock"></i>
+                                <span>Secure Checkout</span>
+                            </div>
+                            <div class="badge">
+                                <i class="fas fa-truck"></i>
+                                <span>Fast Delivery</span>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+            {% else %}
+            <!-- Empty Cart State -->
+            <div class="empty-cart">
+                <div class="empty-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h2>Your cart is empty</h2>
+                <p>Looks like you haven't added anything to your cart yet.</p>
+                <a href="/" class="btn-shop-now">
+                    <i class="fas fa-store"></i>
+                    Start Shopping
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="cart-footer">
+        <div class="footer-content">
+            <p>&copy; 2026 MyStore. All rights reserved.</p>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Contact Us</a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
