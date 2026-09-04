@@ -203,7 +203,7 @@
                     </div>
 
                     <!-- Action Buttons -->
-                    <form method="POST" action="{% url 'save_location' %}">
+                    <form method="POST" action="{% url 'save_location' %}?next={{ next_page }}">
                         {% csrf_token %}
                         <input type="hidden" name="plot_id" :value="selectedPlot.id">
 

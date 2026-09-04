@@ -36,11 +36,13 @@ def location_select_page(request):
     Location selection page - shown after signup or when updating location
     """
     main_areas = MainArea.objects.filter(is_active=True).prefetch_related('plots')
-    
+    next_page = request.GET.get('next', 'checkout_page')
+
     context = {
         'main_areas': main_areas,
+        'next_page': next_page,
     }
-    
+
     return render(request, 'store/location_select.html', context)
 
 
@@ -67,8 +69,8 @@ def save_location(request):
             
             messages.success(request, f'Location saved! Deliveries will be sent to {plot.name}')
             
-            # Redirect to home or wherever they were going
-            next_url = request.GET.get('next', 'home')
+            # Redirect to checkout, or wherever they were going
+            next_url = request.GET.get('next', 'checkout_page')
             return redirect(next_url)
             
         except Plot.DoesNotExist:
