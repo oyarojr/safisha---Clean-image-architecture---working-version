@@ -65,6 +65,17 @@
                                         {{ default_plot.landmark_description }}
                                     </p>
                                     {% endif %}
+                                    {% if door_number %}
+                                    <p class="location-door">
+                                        <i class="fas fa-door-open"></i>
+                                        Door / House No: <strong>{{ door_number }}</strong>
+                                    </p>
+                                    {% else %}
+                                    <p class="location-door location-door-missing">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        No door/house number saved
+                                    </p>
+                                    {% endif %}
                                 </div>
                             </div>
 

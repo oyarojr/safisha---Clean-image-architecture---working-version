@@ -206,6 +206,25 @@
                     <form method="POST" action="{% url 'save_location' %}">
                         {% csrf_token %}
                         <input type="hidden" name="plot_id" :value="selectedPlot.id">
+
+                        <div class="form-group door-number-group">
+                            <label for="doorNumber">
+                                <i class="fas fa-door-open"></i>
+                                Door / House Number
+                            </label>
+                            <input
+                                type="text"
+                                id="doorNumber"
+                                name="door_number"
+                                v-model="doorNumber"
+                                maxlength="30"
+                                placeholder="e.g. Door 4B, House 12"
+                                class="form-control"
+                                required
+                            >
+                            <small class="form-hint">${doorNumber.length}/30 characters</small>
+                        </div>
+
                         <button type="submit" class="btn-confirm">
                             <i class="fas fa-check"></i>
                             Yes, This is My Location
@@ -234,6 +253,7 @@
                     selectedAreaName: '',
                     selectedAreaFee: 0,
                     selectedPlot: {},
+                    doorNumber: '',
                     searchQuery: '',
                     plots: [],
                     currentImageIndex: 0,

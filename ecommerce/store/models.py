@@ -208,6 +208,11 @@ class Profile(models.Model):
         related_name='residents',
         help_text="Default delivery location"
     )
+    door_number = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text="Door/house number or unit label at the plot (letters, numbers, or text, max 30 characters)"
+    )
     location = models.CharField(max_length=100, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -225,7 +230,10 @@ class Profile(models.Model):
 
     def get_delivery_location(self):
         if self.default_plot:
-            return f"{self.default_plot.name}, {self.default_plot.main_area.name}"
+            base = f"{self.default_plot.name}, {self.default_plot.main_area.name}"
+            if self.door_number:
+                return f"{base} - Door {self.door_number}"
+            return base
         return self.location or "Not set"
 
     def get_profile_picture_url(self):

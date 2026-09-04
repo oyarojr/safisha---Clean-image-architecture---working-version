@@ -562,6 +562,52 @@
 }
 
 /* ========================================
+   DOOR NUMBER INPUT
+======================================== */
+.door-number-group {
+    margin-bottom: var(--spacing-xl);
+}
+
+.door-number-group label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    font-size: 0.95rem;
+}
+
+.door-number-group label i {
+    color: var(--brand-primary);
+}
+
+.door-number-group .form-control {
+    width: 100%;
+    padding: var(--spacing-md);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-family: var(--font-secondary);
+    transition: all var(--transition-base);
+    background: var(--color-surface);
+}
+
+.door-number-group .form-control:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(220, 20, 60, 0.1);
+}
+
+.door-number-group .form-hint {
+    display: block;
+    margin-top: var(--spacing-xs);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: right;
+}
+
+/* ========================================
    ACTION BUTTONS
 ======================================== */
 .btn-confirm {

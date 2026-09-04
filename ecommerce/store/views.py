@@ -51,11 +51,17 @@ def save_location(request):
     """
     if request.method == 'POST':
         plot_id = request.POST.get('plot_id')
-        
+        door_number = request.POST.get('door_number', '').strip()[:30]
+
+        if not door_number:
+            messages.error(request, 'Please enter your door/house number.')
+            return redirect('location_select')
+
         try:
             plot = Plot.objects.get(id=plot_id, is_active=True)
             profile = request.user.profile
             profile.default_plot = plot
+            profile.door_number = door_number
             profile.location_setup_complete = True
             profile.save()
             
@@ -455,6 +461,7 @@ def checkout_page(request):
         'cart_items': cart_items,
         'total_price': total_price,
         'default_plot': default_plot,
+        'door_number': profile.door_number,
         'delivery_fee': delivery_fee,
         'grand_total': total_price + delivery_fee,
     }
