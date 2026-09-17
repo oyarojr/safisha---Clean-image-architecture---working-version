@@ -182,3 +182,8 @@ cloudinary.config(
     api_secret=config('CLOUDINARY_API_SECRET'),
     secure=True,
 )
+
+AT_USERNAME = config('AT_USERNAME', default='sandbox')
+AT_API_KEY = config('AT_API_KEY')
+AT_SENDER_ID = config('AT_SENDER_ID', default='')
+VENDOR_SMS_NUMBER = config('VENDOR_SMS_NUMBER', default='0105695803')

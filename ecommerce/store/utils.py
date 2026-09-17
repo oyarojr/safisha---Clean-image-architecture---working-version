@@ -2,6 +2,8 @@ from twilio.rest import Client
 from django.conf import settings
 import base64
 import requests
+import subprocess
+import json
 from datetime import datetime
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
@@ -59,6 +61,67 @@ def initiate_stk_push(phone, amount, order_id):
 
     return response.json()
 
+# ===============================
+# AFRICA'S TALKING SMS
+# ===============================
+
+def sms_format_phone(phone):
+    """
+    Africa's Talking needs numbers as +254XXXXXXXXX.
+    """
+    phone = str(phone).strip().replace(' ', '').replace('-', '')
+    if phone.startswith('+'):
+        return phone
+    if phone.startswith('0'):
+        return '+254' + phone[1:]
+    if phone.startswith('254'):
+        return '+' + phone
+    return '+254' + phone
+
+
+def send_sms(message, recipients):
+    """
+    Send an SMS through Africa's Talking, via curl rather than the requests
+    library. This machine's Python cannot complete a TLS handshake directly
+    to AT's servers (confirmed extensively - not a proxy, not antivirus, not
+    DNS, not the network), but curl.exe reaches them reliably every time.
+
+    Never raises - returns the parsed JSON response dict, or None on failure,
+    so a dead SMS service can never break whatever called it (e.g. the
+    M-Pesa callback, where an exception would stop the payment from
+    recording correctly).
+    """
+    if isinstance(recipients, str):
+        recipients = [recipients]
+    recipients = [sms_format_phone(r) for r in recipients]
+
+    url = (
+        "https://api.sandbox.africastalking.com/version1/messaging"
+        if settings.AT_USERNAME == "sandbox"
+        else "https://api.africastalking.com/version1/messaging"
+    )
+
+    command = [
+        "curl.exe", "-s", "-X", "POST", url,
+        "-H", f"apiKey: {settings.AT_API_KEY}",
+        "-H", "Accept: application/json",
+        "--data-urlencode", f"username={settings.AT_USERNAME}",
+    ]
+    for r in recipients:
+        command += ["--data-urlencode", f"to={r}"]
+    command += ["--data-urlencode", f"message={message}"]
+
+    if settings.AT_SENDER_ID:
+        command += ["--data-urlencode", f"from={settings.AT_SENDER_ID}"]
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        print(f"[AT SMS] Response: {result.stdout}")
+        return json.loads(result.stdout) if result.stdout else None
+
+    except Exception as e:
+        print(f"[AT SMS] FAILED for {recipients}: {e}")
+        return None
 
 def send_whatsapp_message(message, to):
     client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
