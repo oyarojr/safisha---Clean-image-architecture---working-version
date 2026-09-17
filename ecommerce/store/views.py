@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.conf import settings
 from .utils import send_whatsapp_message, initiate_stk_push, format_phone
+from .utils import send_sms, build_order_sms
 from .models import Order, OrderItem, MpesaTransaction
 from decimal import Decimal
 from django.views.decorators.csrf import csrf_exempt
@@ -675,6 +676,13 @@ MyStore Team
             fail_silently=False,
         )
 
+        # Vendor order alert by SMS (Africa's Talking) - same details as the
+        # email above, written in plain text to keep the SMS count down.
+        send_sms(
+            build_order_sms(txn.order, txn),
+            settings.VENDOR_SMS_NUMBER
+        )
+
         # Send order confirmation email to customer
         if user and customer_email != "N/A":
             customer_email_message = f"""
@@ -756,7 +764,14 @@ MyStore Team
             f"Order #{txn.order.id}\n"
             f"Reason: {txn.result_desc}",
             txn.phone_number
-        )       
+        )
+
+        # Vendor SMS alert on failure too
+        send_sms(
+            f"PAYMENT FAILED - Order #{txn.order.id}\n"
+            f"Reason: {txn.result_desc}",
+            settings.VENDOR_SMS_NUMBER
+        )
 
     txn.save()
     return HttpResponse(status=200)

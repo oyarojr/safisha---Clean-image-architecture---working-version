@@ -79,6 +79,45 @@ def sms_format_phone(phone):
     return '+254' + phone
 
 
+def build_order_sms(order, txn):
+    """
+    Same information as the vendor order email, written for SMS: plain
+    ASCII, no emoji, no box-drawing lines. Special characters drop an SMS
+    from 160 characters to 70 per part, which would multiply the cost.
+    """
+    user = order.user
+    if user:
+        customer_name = f"{user.first_name} {user.last_name}".strip() or user.username
+    else:
+        customer_name = "Unknown"
+
+    door_number = ""
+    if user and hasattr(user, 'profile'):
+        door_number = user.profile.door_number
+
+    order_items = order.items.all()
+    items_text = "\n".join([
+        f"- {item.product.name} x{item.quantity} = KES {item.price * item.quantity}"
+        for item in order_items
+    ])
+
+    location = order.get_delivery_location()
+    if door_number:
+        location = f"{location} | {door_number}"
+
+    return (
+        f"ORDER #{order.id}\n"
+        f"{order.created_at.strftime('%d/%m/%Y %I:%M %p')}\n\n"
+        f"Customer: {customer_name}\n"
+        f"Phone: {txn.phone_number}\n\n"
+        f"ITEMS\n{items_text}\n\n"
+        f"Delivery: KES {order.delivery_fee:.2f}\n"
+        f"Total: KES {order.total_amount:.2f}\n"
+        f"Receipt: {txn.mpesa_receipt_number}\n\n"
+        f"Loc: {location}"
+    )
+
+
 def send_sms(message, recipients):
     """
     Send an SMS through Africa's Talking, via curl rather than the requests
@@ -117,7 +156,16 @@ def send_sms(message, recipients):
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=30)
         print(f"[AT SMS] Response: {result.stdout}")
-        return json.loads(result.stdout) if result.stdout else None
+
+        if not result.stdout:
+            return None
+        try:
+            return json.loads(result.stdout)
+        except json.JSONDecodeError:
+            # AT sometimes returns a plain-text error (e.g. auth failures)
+            # instead of JSON - log it as-is rather than crashing on parse.
+            print(f"[AT SMS] Non-JSON response for {recipients}: {result.stdout}")
+            return None
 
     except Exception as e:
         print(f"[AT SMS] FAILED for {recipients}: {e}")
