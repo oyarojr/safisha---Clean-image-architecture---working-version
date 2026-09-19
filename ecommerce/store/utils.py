@@ -97,7 +97,7 @@ def build_order_sms(order, txn):
 
     order_items = order.items.all()
     items_text = "\n".join([
-        f"- {item.product.name} x{item.quantity} = KES {item.price * item.quantity}"
+        f"- {item.product.name} x{item.quantity} = {item.price * item.quantity}"
         for item in order_items
     ])
 
@@ -108,11 +108,11 @@ def build_order_sms(order, txn):
     return (
         f"ORDER #{order.id}\n"
         f"{order.created_at.strftime('%d/%m/%Y %I:%M %p')}\n\n"
-        f"Customer: {customer_name}\n"
-        f"Phone: {txn.phone_number}\n\n"
+        f"Client: {customer_name}\n"
+        f"Tel: {txn.phone_number}\n\n"
         f"ITEMS\n{items_text}\n\n"
-        f"Delivery: KES {order.delivery_fee:.2f}\n"
-        f"Total: KES {order.total_amount:.2f}\n"
+        f"Delivery: {order.delivery_fee:.2f}\n"
+        f"Total: {order.total_amount:.2f}\n"
         f"Receipt: {txn.mpesa_receipt_number}\n\n"
         f"Loc: {location}"
     )

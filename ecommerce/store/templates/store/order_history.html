@@ -69,15 +69,15 @@
             <div class="filter-tabs">
                 <button class="tab-btn active" data-filter="all">
                     <i class="fas fa-list"></i>
-                    All Orders ({{ orders.count }})
+                    All Orders ({{ orders|length }})
                 </button>
-                <button class="tab-btn" data-filter="paid">
+                <button class="tab-btn" data-filter="completed">
                     <i class="fas fa-check-circle"></i>
-                    Completed ({{ paid_orders.count }})
+                    Completed ({{ completed_orders|length }})
                 </button>
                 <button class="tab-btn" data-filter="pending">
                     <i class="fas fa-clock"></i>
-                    Pending ({{ pending_orders.count }})
+                    Pending ({{ pending_orders|length }})
                 </button>
             </div>
 
@@ -85,7 +85,7 @@
             <!-- Orders List -->
             <div class="orders-list">
                 {% for order in orders %}
-                <article class="order-card" data-status="{{ order.is_paid|yesno:'paid,pending' }}">
+                <article class="order-card" data-status="{{ order.display_status }}">
                     <!-- Order Header -->
                     <div class="order-header">
                         <div class="order-header-left">
@@ -99,10 +99,10 @@
                             </span>
                         </div>
                         <div class="order-header-right">
-                            {% if order.is_paid %}
+                            {% if order.display_status == 'completed' %}
                             <span class="status-badge paid">
                                 <i class="fas fa-check-circle"></i>
-                                Paid
+                                Completed
                             </span>
                             {% else %}
                             <span class="status-badge pending">
