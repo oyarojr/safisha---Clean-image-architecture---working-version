@@ -119,16 +119,9 @@ class ProfileUpdateForm(forms.ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['profile_picture', 'bio', 'phone_number', 'location', 'date_of_birth']
+        fields = ['profile_picture', 'phone_number', 'date_of_birth']
         widgets = {
-            "bio": forms.Textarea(attrs={
-                "placeholder": "Tell us about yourself...",
-                "rows": 4
-            }),
             "phone_number": forms.TextInput(attrs={
                 "placeholder": "Phone number"
-            }),
-            "location": forms.TextInput(attrs={
-                "placeholder": "Location"
             }),
         }
