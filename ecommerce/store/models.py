@@ -150,6 +150,11 @@ class Order(models.Model):
             return f"{self.plot.name}, {self.plot.main_area.name}"
         return self.location
 
+    def get_subtotal(self):
+        """Items total before delivery fee - used by order history and
+        order detail pages instead of trying to subtract inside a template."""
+        return self.total_amount - self.delivery_fee
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)

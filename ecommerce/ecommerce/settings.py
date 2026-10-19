@@ -183,7 +183,16 @@ cloudinary.config(
     secure=True,
 )
 
+
+# ===============================
+# AFRICA'S TALKING SMS
+# ===============================
+# AT_USERNAME is 'sandbox' while testing, your real username once live.
 AT_USERNAME = config('AT_USERNAME', default='sandbox')
 AT_API_KEY = config('AT_API_KEY')
+
+# Leave blank until a sender ID is purchased - AT then uses its shared short code.
 AT_SENDER_ID = config('AT_SENDER_ID', default='')
+
+# Vendor phone number that receives the order alert SMS.
 VENDOR_SMS_NUMBER = config('VENDOR_SMS_NUMBER', default='0105695803')

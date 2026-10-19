@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.conf import settings
 from .utils import send_whatsapp_message, initiate_stk_push, format_phone
+from .utils import send_sms, build_order_sms
 from .models import Order, OrderItem, MpesaTransaction
 from decimal import Decimal
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
@@ -16,6 +17,7 @@ from django.db.models import Prefetch, Q
 from django.db import transaction
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from .forms import SignupForm, UserUpdateForm, ProfileUpdateForm
 from django.contrib import messages
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView
@@ -747,6 +749,13 @@ MyStore Team
             fail_silently=False,
         )
 
+        # Vendor order alert by SMS (Africa's Talking) - same details as the
+        # email above, written in plain text to keep the SMS count down.
+        send_sms(
+            build_order_sms(txn.order, txn),
+            settings.VENDOR_SMS_NUMBER
+        )
+
         # Send order confirmation email to customer
         if user and customer_email != "N/A":
             customer_email_message = f"""
@@ -830,7 +839,14 @@ MyStore Team
             f"Order #{txn.order.id}\n"
             f"Reason: {txn.result_desc}",
             txn.phone_number
-        )       
+        )
+
+        # Vendor SMS alert on failure too
+        send_sms(
+            f"PAYMENT FAILED - Order #{txn.order.id}\n"
+            f"Reason: {txn.result_desc}",
+            settings.VENDOR_SMS_NUMBER
+        )
 
     return HttpResponse(status=200)
 
@@ -950,36 +966,53 @@ def password_reset_complete_view(request):
 # ADD THIS VIEW TO YOUR views.py FILE
 
 @login_required(login_url='/login/')
+@never_cache
 def order_history(request):
     """
-    Display user's order history with all details
+    Display the user's order history - paid orders only. Unpaid/abandoned
+    orders (failed or never-completed M-Pesa attempts) never show here.
+
+    Within paid orders, status is time-based for now: an order is "Pending"
+    for the first 2 hours after being placed, then moves to "Completed".
+    This is a placeholder until the vendor gets a proper "mark delivered"
+    control - at that point this should switch to reading an explicit
+    delivered flag instead of a fixed time window.
     """
-    # Get all orders for the current user, ordered by most recent first
-    orders = Order.objects.filter(
-        user=request.user
-    ).select_related(
-        'plot__main_area'
-    ).prefetch_related(
-        'items__product',
-        'mpesa_transaction'
-    ).order_by('-created_at')
-    
-    # Separate orders by status
-    paid_orders = orders.filter(is_paid=True)
-    pending_orders = orders.filter(is_paid=False)
-    
+    PENDING_WINDOW = timedelta(hours=2)
+    cutoff = timezone.now() - PENDING_WINDOW
+
+    orders = list(
+        Order.objects.filter(
+            user=request.user,
+            is_paid=True
+        ).select_related(
+            'plot__main_area'
+        ).prefetch_related(
+            'items__product',
+            'mpesa_transaction'
+        ).order_by('-created_at')
+    )
+
+    # Attach a display status to each order for the template/tabs to use.
+    for order in orders:
+        order.display_status = 'pending' if order.created_at >= cutoff else 'completed'
+
+    pending_orders = [o for o in orders if o.display_status == 'pending']
+    completed_orders = [o for o in orders if o.display_status == 'completed']
+
     context = {
         'orders': orders,
-        'paid_orders': paid_orders,
         'pending_orders': pending_orders,
-        'total_orders': orders.count(),
-        'total_spent': sum(order.total_amount for order in paid_orders),
+        'completed_orders': completed_orders,
+        'total_orders': len(orders),
+        'total_spent': sum(order.total_amount for order in orders),
     }
-    
+
     return render(request, 'store/order_history.html', context)
 
 
 @login_required(login_url='/login/')
+@never_cache
 def order_detail(request, order_id):
     """
     Display detailed view of a specific order
