@@ -66,18 +66,26 @@
             </div>
 
             <!-- Filter Tabs -->
-            <div class="filter-tabs">
-                <button class="tab-btn active" data-filter="all">
+            <div class="filter-tabs" role="group" aria-label="Filter orders">
+                <button class="tab-btn active" data-filter="all" aria-label="All orders" aria-pressed="true">
                     <i class="fas fa-list"></i>
-                    All Orders ({{ orders|length }})
+                    <span class="tab-label"><span class="tab-label-full">All Orders</span><span
+                            class="tab-label-short">All</span></span>
+                    <span class="tab-count">{{ orders|length }}</span>
                 </button>
-                <button class="tab-btn" data-filter="completed">
+                <button class="tab-btn" data-filter="completed" aria-label="Completed orders"
+                    aria-pressed="false">
                     <i class="fas fa-check-circle"></i>
-                    Completed ({{ completed_orders|length }})
+                    <span class="tab-label"><span class="tab-label-full">Completed</span><span
+                            class="tab-label-short">Done</span></span>
+                    <span class="tab-count">{{ completed_orders|length }}</span>
                 </button>
-                <button class="tab-btn" data-filter="pending">
+                <button class="tab-btn" data-filter="pending" aria-label="Pending orders"
+                    aria-pressed="false">
                     <i class="fas fa-clock"></i>
-                    Pending ({{ pending_orders|length }})
+                    <span class="tab-label"><span class="tab-label-full">Pending</span><span
+                            class="tab-label-short">Wait</span></span>
+                    <span class="tab-count">{{ pending_orders|length }}</span>
                 </button>
             </div>
 
@@ -231,10 +239,14 @@
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 // Remove active class from all tabs
-                tabs.forEach(t => t.classList.remove('active'));
+                tabs.forEach(t => {
+                    t.classList.remove('active');
+                    t.setAttribute('aria-pressed', 'false');
+                });
 
                 // Add active class to clicked tab
                 tab.classList.add('active');
+                tab.setAttribute('aria-pressed', 'true');
 
                 // Get filter value
                 const filter = tab.dataset.filter;
