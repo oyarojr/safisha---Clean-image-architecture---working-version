@@ -433,6 +433,25 @@ header {
         margin-right: 0;
     }
 
+    .search-bar .mobile-orders-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+        border-radius: 6px;
+        background-color: #292929;
+        color: white;
+        font-size: 1.1rem;
+        text-decoration: none;
+    }
+
+    .search-bar .mobile-orders-link:focus-visible {
+        outline: 2px solid white;
+        outline-offset: 2px;
+    }
+
     .search-bar .cartblock a {
         padding: 8px 10px;
         font-size: 1.2rem;
@@ -489,6 +508,21 @@ header {
         font-size: 1.8rem;
     }
 
+    .search-bar .account-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: crimson;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
     .search-bar .account-menu .profile-pic-icon {
         width: 40px;
         height: 40px;
@@ -503,10 +537,15 @@ header {
 
     /* Account dropdown should appear ABOVE the icon in mobile view */
     .search-bar .account-dropdown {
-        bottom: 100%;
         top: auto;
-        right: 0;
+        bottom: calc(64px + env(safe-area-inset-bottom));
+        right: 12px;
+        left: auto;
+        width: min(320px, calc(100vw - 24px));
+        max-height: calc(100dvh - 100px);
+        overflow-y: auto;
         margin-bottom: 10px;
+        z-index: 1003;
     }
 
     /* Make profile picture clickable and styled like the icon */
@@ -1448,9 +1487,22 @@ temples
     transition: all 0.3s ease;
 }
 
-#accountIcon:hover {
+#accountIcon:hover,
+#accountIcon:focus-visible {
     color: crimson;
     transform: scale(1.1);
+}
+
+.account-trigger {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    line-height: 1;
+}
+
+.account-trigger:focus-visible {
+    outline: 2px solid crimson;
+    outline-offset: 3px;
 }
 
 /* Profile Picture Icon */
@@ -1488,13 +1540,15 @@ temples
     .account-dropdown {
         position: fixed;
         top: auto;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
+        bottom: calc(64px + env(safe-area-inset-bottom));
+        left: auto;
+        right: 12px;
+        width: min(320px, calc(100vw - 24px));
         margin-top: 0;
-        border-radius: 20px 20px 0 0;
-        max-width: none;
+        border-radius: 12px;
+        max-height: calc(100dvh - 100px);
+        overflow-y: auto;
+        z-index: 1003;
         animation: dropdownSlideUp 0.3s ease;
     }
 

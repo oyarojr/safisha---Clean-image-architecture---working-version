@@ -60,6 +60,8 @@
                             <div class="item-header">
                                 <h3 class="item-name">{{ item.product.name }}</h3>
                                 <button class="remove-btn"
+                                    type="button"
+                                    aria-label="Remove {{ item.product.name }} from cart"
                                     onclick="window.location.href='{% url 'remove_from_cart' item.product.id %}'">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
@@ -71,11 +73,15 @@
                             <div class="item-actions">
                                 <div class="quantity-selector">
                                     <button class="qty-btn"
+                                        type="button"
+                                        aria-label="Decrease quantity of {{ item.product.name }}"
                                         onclick="window.location.href='{% url 'update_cart_quantity' item.product.id 'decrease' %}'">
                                         <i class="fas fa-minus"></i>
                                     </button>
                                     <span class="qty-display">{{ item.quantity }}</span>
                                     <button class="qty-btn"
+                                        type="button"
+                                        aria-label="Increase quantity of {{ item.product.name }}"
                                         onclick="window.location.href='{% url 'update_cart_quantity' item.product.id 'increase' %}'">
                                         <i class="fas fa-plus"></i>
                                     </button>
@@ -124,11 +130,13 @@
                             {% if user.is_authenticated %}
                             <a href="{% url 'checkout_page' %}" class="checkout-btn primary">
                                 <span>Proceed to Checkout</span>
+                                <span class="cart-cta-total">KSH {{ total_price|floatformat:2 }}</span>
                                 <i class="fas fa-arrow-right"></i>
                             </a>
                             {% else %}
                             <a href="{% url 'login' %}?next={% url 'checkout_page' %}" class="checkout-btn primary">
                                 <span>Log In to Checkout</span>
+                                <span class="cart-cta-total">KSH {{ total_price|floatformat:2 }}</span>
                                 <i class="fas fa-arrow-right"></i>
                             </a>
                             {% endif %}

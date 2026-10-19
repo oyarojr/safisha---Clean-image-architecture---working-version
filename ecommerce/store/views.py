@@ -9,7 +9,7 @@ from django.conf import settings
 from .utils import send_whatsapp_message, initiate_stk_push, format_phone
 from .models import Order, OrderItem, MpesaTransaction
 from decimal import Decimal
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.http import HttpResponse
 import json
 from django.db.models import Prefetch, Q
@@ -28,6 +28,10 @@ from .forms import CustomPasswordResetForm, CustomSetPasswordForm
 from django.http import JsonResponse
 from .models import MainArea, Plot, PlotImage
 import cloudinary.utils 
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 @login_required(login_url='/login/')
@@ -171,6 +175,7 @@ def merge_session_cart_to_db(request):
     request.session.modified = True
 
 
+@ensure_csrf_cookie
 def home(request):
     query = request.GET.get('q', '').strip()
 
@@ -534,11 +539,45 @@ def checkout(request):
                 phone_number=phone
             )
 
-        response = initiate_stk_push(phone, total_amount, order.id)
+        try:
+            response = initiate_stk_push(phone, total_amount, order.id)
+        except requests.Timeout:
+            logger.exception("M-Pesa request timed out for order %s", order.id)
+            mpesa_txn.result_desc = 'Timed out waiting for M-Pesa response'
+            mpesa_txn.save(update_fields=['result_desc'])
+            return JsonResponse({
+                'error': (
+                    'M-Pesa is taking longer than expected. Check your phone before '
+                    'trying again to avoid sending a duplicate payment request.'
+                )
+            }, status=504)
+        except (requests.RequestException, ValueError):
+            logger.exception("M-Pesa payment request failed for order %s", order.id)
+            mpesa_txn.status = 'FAILED'
+            mpesa_txn.result_desc = 'Unable to send payment request to M-Pesa'
+            mpesa_txn.save(update_fields=['status', 'result_desc'])
+            return JsonResponse({
+                'error': 'We could not send the payment request. Please try again.'
+            }, status=502)
 
-        mpesa_txn.checkout_request_id = response.get('CheckoutRequestID')
+        checkout_request_id = response.get('CheckoutRequestID')
+        if not checkout_request_id:
+            error_message = response.get('errorMessage') or response.get('ResponseDescription')
+            logger.error(
+                "M-Pesa did not return a checkout request ID for order %s: %s",
+                order.id,
+                error_message or 'No error description provided',
+            )
+            mpesa_txn.status = 'FAILED'
+            mpesa_txn.result_desc = (error_message or 'M-Pesa did not accept the request')[:255]
+            mpesa_txn.save(update_fields=['status', 'result_desc'])
+            return JsonResponse({
+                'error': error_message or 'M-Pesa could not start the payment. Please try again.'
+            }, status=502)
+
+        mpesa_txn.checkout_request_id = checkout_request_id
         mpesa_txn.merchant_request_id = response.get('MerchantRequestID')
-        mpesa_txn.save()
+        mpesa_txn.save(update_fields=['checkout_request_id', 'merchant_request_id'])
 
         return JsonResponse({
             'order_id': order.id,
@@ -548,42 +587,73 @@ def checkout(request):
 
 @csrf_exempt
 def mpesa_callback(request):
-    print("🔥 MPESA CALLBACK RECEIVED 🔥")
-    print(request.body)
+    if request.method != 'POST':
+        return HttpResponse(status=405)
 
-    data = json.loads(request.body)
+    try:
+        stk = json.loads(request.body)['Body']['stkCallback']
+        checkout_id = stk['CheckoutRequestID']
+        result_code = int(stk['ResultCode'])
+        result_desc = str(stk.get('ResultDesc', ''))[:255]
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        logger.warning("Received malformed M-Pesa callback")
+        return HttpResponse(status=400)
 
-    stk = data['Body']['stkCallback']
-    checkout_id = stk['CheckoutRequestID']
+    try:
+        with transaction.atomic():
+            txn = MpesaTransaction.objects.select_for_update().select_related(
+                'order',
+                'order__user',
+                'order__plot__main_area',
+            ).get(checkout_request_id=checkout_id)
 
-    txn = MpesaTransaction.objects.get(checkout_request_id=checkout_id)
+            if txn.status != 'PENDING':
+                return HttpResponse(status=200)
 
-    txn.result_code = stk['ResultCode']
-    txn.result_desc = stk['ResultDesc']
+            txn.result_code = result_code
+            txn.result_desc = result_desc
 
-    if stk['ResultCode'] == 0:
-        items = stk['CallbackMetadata']['Item']
-        for item in items:
-            if item['Name'] == 'MpesaReceiptNumber':
-                txn.mpesa_receipt_number = item['Value']
+            if result_code == 0:
+                callback_items = stk.get('CallbackMetadata', {}).get('Item', [])
+                for item in callback_items:
+                    if item.get('Name') == 'MpesaReceiptNumber':
+                        txn.mpesa_receipt_number = str(item.get('Value', ''))[:50]
 
-        txn.status = 'SUCCESS'
-        txn.order.is_paid = True
-        for item in txn.order.items.all():
-            product = item.product
-            product.stock_quantity -= item.quantity
-            product.save()
+                txn.status = 'SUCCESS'
+                txn.order.is_paid = True
+                for item in txn.order.items.select_related('product'):
+                    product = item.product
+                    product.stock_quantity -= item.quantity
+                    product.save(update_fields=['stock_quantity'])
 
-        txn.order.save()
+                txn.order.save(update_fields=['is_paid'])
 
-        # Clear user's cart after successful payment
-        if txn.order.user:
-            try:
-                cart = Cart.objects.get(user=txn.order.user)
-                cart.items.all().delete()
-            except Cart.DoesNotExist:
-                pass
+                if txn.order.user:
+                    cart = Cart.objects.filter(user=txn.order.user).first()
+                    if cart:
+                        cart.items.all().delete()
+            else:
+                txn.status = 'FAILED'
 
+            txn.save(update_fields=[
+                'result_code',
+                'result_desc',
+                'mpesa_receipt_number',
+                'status',
+            ])
+    except MpesaTransaction.DoesNotExist:
+        logger.error("Received M-Pesa callback for unknown checkout request %s", checkout_id)
+        return HttpResponse(status=200)
+
+    logger.info("M-Pesa callback recorded for order %s: %s", txn.order_id, txn.status)
+
+    def notify_payment(notification, *args, **kwargs):
+        try:
+            notification(*args, **kwargs)
+        except Exception:
+            logger.exception("Post-payment notification failed for order %s", txn.order_id)
+
+    if result_code == 0:
         # Send WhatsApp + Email
         customer_name = txn.order.user.first_name if txn.order.user else "Unknown"
 
@@ -594,7 +664,8 @@ def mpesa_callback(request):
             for item in order_items
         ])
         
-        send_whatsapp_message(
+        notify_payment(
+            send_whatsapp_message,
             f"🧾 NEW PAID ORDER\n\n"
             f"Order #: {txn.order.id}\n"
             f"Customer: {customer_name}\n"
@@ -667,7 +738,8 @@ Please prepare this order for delivery.
 MyStore Team
 """
         
-        send_mail(
+        notify_payment(
+            send_mail,
             subject=f"🧾 NEW ORDER #{txn.order.id} - KES {txn.order.total_amount} PAID",
             message=email_message,
             from_email=settings.EMAIL_HOST_USER,
@@ -726,7 +798,8 @@ Thank you for shopping with MyStore! ❤️
 MyStore Team
 """
             
-            send_mail(
+            notify_payment(
+                send_mail,
                 subject=f"✅ Order Confirmation #{txn.order.id} - MyStore",
                 message=customer_email_message,
                 from_email=settings.EMAIL_HOST_USER,
@@ -737,7 +810,8 @@ MyStore Team
         # Customer confirmation with order summary
         items_count = order_items.count()
         
-        send_whatsapp_message(
+        notify_payment(
+            send_whatsapp_message,
             f"Payment successful 🎉\n\n"
             f"Order #{txn.order.id}\n"
             f"Items: {items_count} product{'s' if items_count > 1 else ''}\n"
@@ -750,15 +824,14 @@ MyStore Team
         )
 
     else:
-        txn.status = 'FAILED'
-        send_whatsapp_message(
+        notify_payment(
+            send_whatsapp_message,
             f"Payment failed ❌\n"
             f"Order #{txn.order.id}\n"
             f"Reason: {txn.result_desc}",
             txn.phone_number
         )       
 
-    txn.save()
     return HttpResponse(status=200)
 
 

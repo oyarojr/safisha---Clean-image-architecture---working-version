@@ -110,7 +110,8 @@
 
                             <button type="button" class="btn-checkout primary" onclick="openMpesaModal()">
                                 <i class="fas fa-lock"></i>
-                                <span>Proceed to Payment</span>
+                                <span class="checkout-button-label">Proceed to Payment</span>
+                                <span class="mobile-payment-total">KSH {{ grand_total|floatformat:2 }}</span>
                                 <i class="fas fa-arrow-right"></i>
                             </button>
                         </form>
@@ -172,7 +173,8 @@
                     <i class="fas fa-mobile-alt"></i>
                     <h3>M-Pesa Payment</h3>
                 </div>
-                <button class="close-modal-btn" onclick="closeMpesaModal()">
+                <button class="close-modal-btn" type="button" aria-label="Close payment window"
+                    onclick="closeMpesaModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -189,26 +191,26 @@
                         M-Pesa Phone Number
                     </label>
                     <input type="tel" id="phoneInput" class="form-control" placeholder="0712345678" maxlength="10"
-                        pattern="[0-9]{10}">
-                    <small class="form-hint">Enter your Safaricom number</small>
+                        pattern="[0-9]{10}" inputmode="numeric" autocomplete="tel">
+                    <small class="form-hint">We'll send a payment request to this Safaricom number.</small>
                 </div>
 
                 <button class="btn-pay" id="payBtn" onclick="initiatePayment()">
                     <i class="fas fa-shield-alt"></i>
-                    <span>Send STK Push</span>
+                    <span>Send payment request</span>
                 </button>
 
                 <button class="btn-retry" id="retryBtn" onclick="initiatePayment()">
                     <i class="fas fa-redo"></i>
-                    <span>Retry Payment</span>
+                    <span>Try payment again</span>
                 </button>
 
                 <div id="paymentStatus" class="payment-status"></div>
 
                 <div id="spinner" class="payment-spinner">
                     <div class="spinner-circle"></div>
-                    <p>Check your phone for M-Pesa prompt...</p>
-                    <small>Enter your M-Pesa PIN to complete payment</small>
+                    <p>Approve the payment on your phone</p>
+                    <small>Enter your M-Pesa PIN to finish.</small>
                 </div>
 
                 <div class="payment-security">
@@ -281,11 +283,11 @@
             if (!phone) {
                 alert("Please enter your M-Pesa phone number");
                 payBtn.disabled = false;
-                payBtn.innerHTML = '<i class="fas fa-shield-alt"></i><span>Send STK Push</span>';
+                payBtn.innerHTML = '<i class="fas fa-shield-alt"></i><span>Send payment request</span>';
                 return;
             }
 
-            document.getElementById('paymentStatus').innerText = "Sending STK Push...";
+            document.getElementById('paymentStatus').innerText = "Sending payment request...";
             document.getElementById('paymentStatus').className = 'payment-status info';
             document.getElementById('spinner').style.display = 'block';
 
@@ -295,26 +297,43 @@
                     "X-CSRFToken": "{{ csrf_token }}",
                     "Content-Type": "application/x-www-form-urlencoded"
                 },
-                body: `phone=${phone}&plot_id=${plotId}`
+                body: new URLSearchParams({ phone, plot_id: plotId })
             })
-                .then(res => res.json())
+                .then(async res => {
+                    const data = await res.json();
+                    if (!res.ok && !data.order_id) {
+                        const error = new Error(data.error || "Payment request could not be started.");
+                        error.paymentOutcomeUnknown = res.status === 504;
+                        throw error;
+                    }
+                    return data;
+                })
                 .then(data => {
+                    if (!data.order_id) {
+                        throw new Error(data.error || "Payment request could not be started.");
+                    }
                     const orderId = data.order_id;
-                    document.getElementById('paymentStatus').innerText = "Waiting for payment confirmation...";
+                    document.getElementById('paymentStatus').innerText = "Waiting for you to approve the payment...";
                     startPolling(orderId);
                 })
-                .catch(() => {
-                    document.getElementById('paymentStatus').innerText = "Payment initiation failed";
+                .catch(error => {
+                    document.getElementById('paymentStatus').innerText =
+                        error.message || "Payment initiation failed. Check your phone before trying again.";
                     document.getElementById('paymentStatus').className = 'payment-status error';
                     document.getElementById('spinner').style.display = 'none';
-                    showRetry();
+                    const payBtn = document.getElementById('payBtn');
+                    payBtn.innerHTML = '<i class="fas fa-shield-alt"></i><span>Send payment request</span>';
+                    payBtn.disabled = Boolean(error.paymentOutcomeUnknown);
                 });
         }
 
         function startPolling(orderId) {
-            pollInterval = setInterval(() => {
+            function checkPaymentStatus() {
                 fetch(`/payment-status/${orderId}/`)
-                    .then(res => res.json())
+                    .then(res => {
+                        if (!res.ok) throw new Error("Could not check payment status.");
+                        return res.json();
+                    })
                     .then(data => {
                         if (data.status === "SUCCESS") {
                             clearAllTimers();
@@ -335,16 +354,21 @@
                             showRetry();
                             hidepayBtn();
                         }
+                    })
+                    .catch(() => {
+                        document.getElementById('paymentStatus').innerText =
+                            "Connection interrupted. Still checking your payment...";
+                        document.getElementById('paymentStatus').className = 'payment-status info';
                     });
-            }, 3000);
+            }
 
+            checkPaymentStatus();
+            pollInterval = setInterval(checkPaymentStatus, 2000);
             timeoutTimer = setTimeout(() => {
-                clearAllTimers();
-                document.getElementById('spinner').style.display = 'none';
                 document.getElementById('paymentStatus').innerText =
-                    "Payment timed out. Please try again.";
-                document.getElementById('paymentStatus').className = 'payment-status error';
-                showRetry();
+                    "Still waiting for M-Pesa confirmation. Keep this page open and don't retry the payment.";
+                document.getElementById('paymentStatus').className = 'payment-status info';
+                timeoutTimer = null;
             }, 60000);
         }
 
@@ -359,7 +383,7 @@
             }
             const payBtn = document.getElementById('payBtn');
             payBtn.disabled = false;
-            payBtn.innerHTML = '<i class="fas fa-shield-alt"></i><span>Send STK Push</span>';
+            payBtn.innerHTML = '<i class="fas fa-shield-alt"></i><span>Send payment request</span>';
         }
 
         function showRetry() {

@@ -21,19 +21,29 @@
         // Account menu toggle functionality
         document.addEventListener('DOMContentLoaded', function () {
             const accountIcon = document.getElementById('accountIcon');
+            const accountMenu = document.querySelector('.account-menu');
             const accountDropdown = document.getElementById('accountDropdown');
 
-            if (accountIcon && accountDropdown) {
+            if (accountIcon && accountMenu && accountDropdown) {
                 accountIcon.addEventListener('click', function (e) {
                     e.stopPropagation();
-                    e.preventDefault();
                     const isVisible = accountDropdown.style.display === 'block';
                     accountDropdown.style.display = isVisible ? 'none' : 'block';
+                    accountIcon.setAttribute('aria-expanded', String(!isVisible));
                 });
 
                 document.addEventListener('click', function (e) {
-                    if (!accountIcon.contains(e.target) && !accountDropdown.contains(e.target)) {
+                    if (!accountMenu.contains(e.target)) {
                         accountDropdown.style.display = 'none';
+                        accountIcon.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') {
+                        accountDropdown.style.display = 'none';
+                        accountIcon.setAttribute('aria-expanded', 'false');
+                        accountIcon.focus();
                     }
                 });
             }
@@ -58,6 +68,12 @@
             </div>
 
             <div class="right-section">
+                {% if user.is_authenticated %}
+                <a href="{% url 'order_history' %}" class="mobile-orders-link"
+                    aria-label="Order history" title="Order history">
+                    <i class="fas fa-receipt" aria-hidden="true"></i>
+                </a>
+                {% endif %}
                 <span class="cartblock">
                     <a href="{% url 'cart_detail' %}">
                         Cart (<span id="cart-count">{{ cart_count|default:0 }}</span>)
@@ -69,14 +85,17 @@
                 {% endif %}
 
                 <div class="account-menu">
-                    {% if user.is_authenticated and user.profile.has_profile_picture %}
-                    <img src="{{ user.profile.get_profile_picture_url }}" alt="Profile" class="profile-pic-icon"
-                        id="accountIcon">
-                    {% else %}
-                    <i class="fas fa-user-circle" id="accountIcon"></i>
-                    {% endif %}
+                    <button type="button" class="account-trigger" id="accountIcon"
+                        aria-label="Open account menu" aria-haspopup="true" aria-expanded="false"
+                        aria-controls="accountDropdown">
+                        {% if user.is_authenticated and user.profile.has_profile_picture %}
+                        <img src="{{ user.profile.get_profile_picture_url }}" alt="" class="profile-pic-icon">
+                        {% else %}
+                        <i class="fas fa-user-circle" aria-hidden="true"></i>
+                        {% endif %}
+                    </button>
 
-                    <div class="account-dropdown" id="accountDropdown">
+                    <div class="account-dropdown" id="accountDropdown" aria-label="Account menu">
                         {% if user.is_authenticated %}
                         <a href="{% url 'profile' %}">
                             <i class="fas fa-user"></i>

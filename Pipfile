@@ -10,6 +10,7 @@ cloudinary = "*"
 django-cloudinary-storage = "*"
 twilio = "*"
 requests = "*"
+africastalking = "*"
 
 [dev-packages]
 
