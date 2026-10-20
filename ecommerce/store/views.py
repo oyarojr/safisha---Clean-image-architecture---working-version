@@ -857,18 +857,7 @@ def payment_status(request, order_id):
 
 
 def order_success(request):
-    # Clear cart after successful order
-    if request.user.is_authenticated:
-        try:
-            cart = Cart.objects.get(user=request.user)
-            cart.items.all().delete()
-        except Cart.DoesNotExist:
-            pass
-    else:
-        request.session.pop('cart', None)
-        request.session.modified = True
-    
-    return render(request, 'store/order_success.html')
+    return redirect('order_history')
 
 
 @login_required(login_url='/login/')

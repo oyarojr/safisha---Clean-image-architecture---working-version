@@ -343,7 +343,7 @@
                             document.getElementById('paymentStatus').innerText = "Payment successful! Redirecting...";
                             document.getElementById('paymentStatus').className = 'payment-status success';
                             setTimeout(() => {
-                                window.location.href = "/order-success/";
+                                window.location.href = "{% url 'order_history' %}";
                             }, 1500);
                         }
 
